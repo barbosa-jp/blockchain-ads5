@@ -36,4 +36,19 @@ contract AcademicChain is Ownable {
     }
 
     constructor() Ownable(msg.sender) {}
+
+    function authorizeIssuer(address issuer) external onlyOwner {
+        require(issuer != address(0), "Endereco invalido");
+        authorizedIssuers[issuer] = true;
+        emit IssuerAuthorized(issuer);
+    }
+
+    function revokeIssuer(address issuer) external onlyOwner {
+        authorizedIssuers[issuer] = false;
+        emit IssuerRevoked(issuer);
+    }
+
+    function isAuthorizedIssuer(address issuer) external view returns (bool) {
+        return authorizedIssuers[issuer];
+    }
 }
