@@ -207,6 +207,49 @@ describe("AcademicChain", function () {
     });
   });
 
+  describe("Public Verification", function () {
+    it("verifyById returns valid=true for an active certificate", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      const [valid] = await contract.verifyById(1n);
+      expect(valid).to.be.true;
+    });
+
+    it("verifyById returns valid=false after revocation", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      await contract.revokeCertificate(1n, "motivo");
+      const [valid] = await contract.verifyById(1n);
+      expect(valid).to.be.false;
+    });
+
+    it("verifyByHash returns valid=true for a known active document hash", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      const [valid] = await contract.verifyByHash(HASH_A);
+      expect(valid).to.be.true;
+    });
+
+    it("verifyByHash returns valid=false for a known revoked document hash", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      await contract.revokeCertificate(1n, "motivo");
+      const [valid] = await contract.verifyByHash(HASH_A);
+      expect(valid).to.be.false;
+    });
+
+    it("verifyByHash returns valid=false for an unknown hash", async function () {
+      const { contract } = await loadFixture(deployFixture);
+      const [valid] = await contract.verifyByHash(HASH_B);
+      expect(valid).to.be.false;
+    });
+
+    it("verifyByHash returns correct certificate metadata", async function () {
+      const { contract, student } = await loadFixture(deployWithCertFixture);
+      const [valid, cert] = await contract.verifyByHash(HASH_A);
+      expect(valid).to.be.true;
+      expect(cert.student).to.equal(student.address);
+      expect(cert.courseName).to.equal("Engenharia de Software");
+      expect(cert.workloadHours).to.equal(40n);
+    });
+  });
+
   describe("Certificate Revocation", function () {
     it("owner revokes a certificate and emits CertificateRevoked", async function () {
       const { contract } = await loadFixture(deployWithCertFixture);

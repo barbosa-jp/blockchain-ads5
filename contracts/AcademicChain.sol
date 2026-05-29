@@ -110,4 +110,20 @@ contract AcademicChain is Ownable {
     function getCertificatesOf(address student) external view returns (uint256[] memory) {
         return _studentCertificates[student];
     }
+
+    function verifyById(uint256 id) external view returns (bool valid, Certificate memory cert) {
+        require(id > 0 && id < _nextId, "Certificado nao existe");
+        cert = certificates[id];
+        valid = !cert.revoked;
+    }
+
+    function verifyByHash(string calldata documentHash) external view returns (bool valid, Certificate memory cert) {
+        uint256 id = _certificateByHash[documentHash];
+        if (id == 0) {
+            return (false, cert);
+        }
+
+        cert = certificates[id];
+        valid = !cert.revoked;
+    }
 }
