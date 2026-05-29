@@ -169,4 +169,53 @@ describe("AcademicChain", function () {
       expect(ids[0]).to.equal(1n);
     });
   });
+
+  describe("Certificate Revocation", function () {
+    it("owner revokes a certificate and emits CertificateRevoked", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      await expect(contract.revokeCertificate(1n, "Emitido em erro"))
+        .to.emit(contract, "CertificateRevoked")
+        .withArgs(1n, "Emitido em erro");
+    });
+
+    it("authorized issuer revokes a certificate", async function () {
+      const { contract, issuer } = await loadFixture(deployWithCertFixture);
+      await expect(contract.connect(issuer).revokeCertificate(1n, "Fraude detectada"))
+        .to.emit(contract, "CertificateRevoked");
+    });
+
+    it("unauthorized address cannot revoke", async function () {
+      const { contract, other } = await loadFixture(deployWithCertFixture);
+      await expect(contract.connect(other).revokeCertificate(1n, "motivo"))
+        .to.be.revertedWith("Nao autorizado");
+    });
+
+    it("reverts when revoking a non-existent certificate", async function () {
+      const { contract } = await loadFixture(deployFixture);
+      await expect(contract.revokeCertificate(99n, "motivo"))
+        .to.be.revertedWith("Certificado nao existe");
+    });
+
+    it("reverts when revoking an already-revoked certificate", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      await contract.revokeCertificate(1n, "primeira vez");
+      await expect(contract.revokeCertificate(1n, "segunda vez"))
+        .to.be.revertedWith("Ja revogado");
+    });
+
+    it("reverts when revoke reason is empty", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      await expect(contract.revokeCertificate(1n, ""))
+        .to.be.revertedWith("Motivo obrigatorio");
+    });
+
+    it("marks certificate as revoked with reason and timestamp", async function () {
+      const { contract } = await loadFixture(deployWithCertFixture);
+      await contract.revokeCertificate(1n, "Emitido em erro");
+      const cert = await contract.getCertificate(1n);
+      expect(cert.revoked).to.be.true;
+      expect(cert.revokeReason).to.equal("Emitido em erro");
+      expect(cert.revokedAt).to.be.greaterThan(0n);
+    });
+  });
 });

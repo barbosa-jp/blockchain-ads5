@@ -89,4 +89,17 @@ contract AcademicChain is Ownable {
         require(id > 0 && id < _nextId, "Certificado nao existe");
         return certificates[id];
     }
+
+    function revokeCertificate(uint256 id, string calldata reason) external onlyIssuer {
+        require(id > 0 && id < _nextId, "Certificado nao existe");
+        require(!certificates[id].revoked, "Ja revogado");
+        require(bytes(reason).length > 0, "Motivo obrigatorio");
+
+        certificates[id].revoked = true;
+        certificates[id].revokeReason = reason;
+        certificates[id].revokedAt = block.timestamp;
+
+        emit CertificateRevoked(id, reason);
+
+    }
 }
