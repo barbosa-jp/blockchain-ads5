@@ -170,6 +170,43 @@ describe("AcademicChain", function () {
     });
   });
 
+  describe("Queries", function () {
+    it("getMyCertificates returns certificate IDs for the caller", async function () {
+      const { contract, student } = await loadFixture(deployWithCertFixture);
+      const ids = await contract.connect(student).getMyCertificates();
+      expect(ids.length).to.equal(1);
+      expect(ids[0]).to.equal(1n);
+    });
+
+    it("getMyCertificates returns empty array for address with no certificates", async function () {
+      const { contract, other } = await loadFixture(deployFixture);
+      const ids = await contract.connect(other).getMyCertificates();
+      expect(ids.length).to.equal(0);
+    });
+
+    it("getCertificatesOf returns all IDs for a given student", async function () {
+      const { contract, student } = await loadFixture(deployFixture);
+      await contract.issueCertificate(student.address, "X", "Y", 1, HASH_A);
+      await contract.issueCertificate(student.address, "X", "Y", 1, HASH_B);
+      const ids = await contract.getCertificatesOf(student.address);
+      expect(ids.length).to.equal(2);
+      expect(ids[0]).to.equal(1n);
+      expect(ids[1]).to.equal(2n);
+    });
+
+    it("getCertificate reverts for a non-existent ID", async function () {
+      const { contract } = await loadFixture(deployFixture);
+      await expect(contract.getCertificate(99n))
+        .to.be.revertedWith("Certificado nao existe");
+    });
+
+    it("getCertificate reverts for ID 0", async function () {
+      const { contract } = await loadFixture(deployFixture);
+      await expect(contract.getCertificate(0n))
+        .to.be.revertedWith("Certificado nao existe");
+    });
+  });
+
   describe("Certificate Revocation", function () {
     it("owner revokes a certificate and emits CertificateRevoked", async function () {
       const { contract } = await loadFixture(deployWithCertFixture);

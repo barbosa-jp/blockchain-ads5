@@ -102,4 +102,12 @@ contract AcademicChain is Ownable {
         emit CertificateRevoked(id, reason);
 
     }
+
+    function getMyCertificates() external view returns (uint256[] memory) {
+        return _studentCertificates[msg.sender];
+    }
+
+    function getCertificatesOf(address student) external view returns (uint256[] memory) {
+        return _studentCertificates[student];
+    }
 }
