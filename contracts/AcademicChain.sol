@@ -51,4 +51,42 @@ contract AcademicChain is Ownable {
     function isAuthorizedIssuer(address issuer) external view returns (bool) {
         return authorizedIssuers[issuer];
     }
+
+    function issueCertificate(
+        address student,
+        string calldata studentName,
+        string calldata courseName,
+        uint256 workloadHours,
+        string calldata documentHash
+    ) external onlyIssuer returns (uint256) {
+        require(student != address(0), "Endereco invalido");
+        require(bytes(documentHash).length > 0, "Hash obrigatorio");
+        require(_certificateByHash[documentHash] == 0, "Certificado ja existe");
+        require(workloadHours > 0, "Carga horaria invalida");
+
+        uint256 id = _nextId++;
+        certificates[id] = Certificate({
+            id: id,
+            student: student,
+            studentName: studentName,
+            courseName: courseName,
+            workloadHours: workloadHours,
+            documentHash: documentHash,
+            issuedBy: msg.sender,
+            issuedAt: block.timestamp,
+            revoked: false,
+            revokeReason: "",
+            revokedAt: 0
+        });
+        _studentCertificates[student].push(id);
+        _certificateByHash[documentHash] = id;
+
+        emit CertificateIssued(id, student, msg.sender, documentHash);
+        return id;
+    }
+
+    function getCertificate(uint256 id) external view returns (Certificate memory) {
+        require(id > 0 && id < _nextId, "Certificado nao existe");
+        return certificates[id];
+    }
 }
