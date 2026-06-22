@@ -47,7 +47,7 @@ contract AcademicChain is Ownable {
         bool executed;
     }
 
-    uint256 public constant VOTING_PERIOD = 3 days;
+    uint256 public immutable VOTING_PERIOD;
     uint256 private _nextProposalId = 1;
     uint256[] private _allProposalIds;
     mapping(uint256 => Proposal) public proposals;
@@ -62,7 +62,9 @@ contract AcademicChain is Ownable {
         _;
     }
 
-    constructor() Ownable(msg.sender) {}
+    constructor(uint256 votingPeriod) Ownable(msg.sender) {
+        VOTING_PERIOD = votingPeriod;
+    }
 
     function authorizeIssuer(address issuer) external onlyOwner {
         require(issuer != address(0), "Endereco invalido");

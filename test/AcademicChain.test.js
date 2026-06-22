@@ -7,10 +7,12 @@ describe("AcademicChain", function () {
   const HASH_A = "a".repeat(64);
   const HASH_B = "b".repeat(64);
 
+  const THREE_DAYS = 3 * 24 * 60 * 60;
+
   async function deployFixture() {
     const [owner, issuer, student, other] = await ethers.getSigners();
     const AcademicChain = await ethers.getContractFactory("AcademicChain");
-    const contract = await AcademicChain.deploy();
+    const contract = await AcademicChain.deploy(THREE_DAYS);
     return { contract, owner, issuer, student, other };
   }
 
@@ -304,7 +306,7 @@ describe("AcademicChain", function () {
     async function daoFixture() {
       const [owner, issuer, issuer2, student, other] = await ethers.getSigners();
       const AcademicChain = await ethers.getContractFactory("AcademicChain");
-      const contract = await AcademicChain.deploy();
+      const contract = await AcademicChain.deploy(THREE_DAYS);
       await contract.authorizeIssuer(issuer.address);
       await contract.issueCertificate(student.address, "Ana Lima", "Eng Software", 40, HASH_A);
       return { contract, owner, issuer, issuer2, student, other };
@@ -429,8 +431,6 @@ describe("AcademicChain", function () {
     });
 
     describe("executeProposal", function () {
-      const THREE_DAYS = 3 * 24 * 60 * 60;
-
       async function withApprovedProposalFixture() {
         const ctx = await loadFixture(daoFixture);
         await ctx.contract.connect(ctx.issuer).createProposal(
@@ -515,8 +515,6 @@ describe("AcademicChain", function () {
     });
 
     describe("getActiveProposals", function () {
-      const THREE_DAYS = 3 * 24 * 60 * 60;
-
       it("retorna IDs das propostas ainda em votacao", async function () {
         const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
         await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Proposta 1");
