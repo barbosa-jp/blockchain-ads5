@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { loadFixture, time } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 
 describe("AcademicChain", function () {
   const HASH_A = "a".repeat(64);
@@ -296,6 +297,262 @@ describe("AcademicChain", function () {
       expect(cert.revoked).to.be.true;
       expect(cert.revokeReason).to.equal("Emitido em erro");
       expect(cert.revokedAt).to.be.greaterThan(0n);
+    });
+  });
+
+  describe("DAO Voting", function () {
+    async function daoFixture() {
+      const [owner, issuer, issuer2, student, other] = await ethers.getSigners();
+      const AcademicChain = await ethers.getContractFactory("AcademicChain");
+      const contract = await AcademicChain.deploy();
+      await contract.authorizeIssuer(issuer.address);
+      await contract.issueCertificate(student.address, "Ana Lima", "Eng Software", 40, HASH_A);
+      return { contract, owner, issuer, issuer2, student, other };
+    }
+
+    describe("createProposal", function () {
+      it("issuer cria proposta AuthorizeIssuer e emite ProposalCreated", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await expect(
+          contract.connect(issuer).createProposal(0, issuer2.address, 0, "Adicionar emissor")
+        )
+          .to.emit(contract, "ProposalCreated")
+          .withArgs(1n, 0, issuer.address, anyValue);
+      });
+
+      it("nao autorizado nao pode criar proposta", async function () {
+        const { contract, other, issuer2 } = await loadFixture(daoFixture);
+        await expect(
+          contract.connect(other).createProposal(0, issuer2.address, 0, "test")
+        ).to.be.revertedWith("Nao autorizado");
+      });
+
+      it("reverte quando descricao esta vazia", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await expect(
+          contract.connect(issuer).createProposal(0, issuer2.address, 0, "")
+        ).to.be.revertedWith("Descricao obrigatoria");
+      });
+
+      it("reverte quando alvo ja e emissor (AuthorizeIssuer)", async function () {
+        const { contract, issuer } = await loadFixture(daoFixture);
+        await expect(
+          contract.connect(issuer).createProposal(0, issuer.address, 0, "test")
+        ).to.be.revertedWith("Ja e emissor");
+      });
+
+      it("reverte quando alvo nao e emissor (RevokeIssuer)", async function () {
+        const { contract, issuer, other } = await loadFixture(daoFixture);
+        await expect(
+          contract.connect(issuer).createProposal(1, other.address, 0, "test")
+        ).to.be.revertedWith("Nao e emissor");
+      });
+
+      it("reverte quando certificado nao existe (RevokeCertificate)", async function () {
+        const { contract, issuer } = await loadFixture(daoFixture);
+        await expect(
+          contract.connect(issuer).createProposal(2, ethers.ZeroAddress, 99, "test")
+        ).to.be.revertedWith("Certificado nao existe");
+      });
+
+      it("armazena a proposta com dados corretos", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Adicionar emissor");
+        const p = await contract.getProposal(1n);
+        expect(p.id).to.equal(1n);
+        expect(p.proposalType).to.equal(0);
+        expect(p.proposer).to.equal(issuer.address);
+        expect(p.targetAddress).to.equal(issuer2.address);
+        expect(p.description).to.equal("Adicionar emissor");
+        expect(p.votesFor).to.equal(0n);
+        expect(p.executed).to.be.false;
+      });
+    });
+
+    describe("vote", function () {
+      async function withProposalFixture() {
+        const ctx = await loadFixture(daoFixture);
+        await ctx.contract.connect(ctx.issuer).createProposal(
+          0, ctx.issuer2.address, 0, "Adicionar emissor"
+        );
+        return ctx;
+      }
+
+      it("issuer vota a favor e votesFor incrementa", async function () {
+        const { contract, issuer } = await loadFixture(withProposalFixture);
+        await contract.connect(issuer).vote(1n, true);
+        const p = await contract.getProposal(1n);
+        expect(p.votesFor).to.equal(1n);
+        expect(p.votesAgainst).to.equal(0n);
+      });
+
+      it("issuer vota contra e votesAgainst incrementa", async function () {
+        const { contract, issuer } = await loadFixture(withProposalFixture);
+        await contract.connect(issuer).vote(1n, false);
+        const p = await contract.getProposal(1n);
+        expect(p.votesFor).to.equal(0n);
+        expect(p.votesAgainst).to.equal(1n);
+      });
+
+      it("emite evento VoteCast", async function () {
+        const { contract, issuer } = await loadFixture(withProposalFixture);
+        await expect(contract.connect(issuer).vote(1n, true))
+          .to.emit(contract, "VoteCast")
+          .withArgs(1n, issuer.address, true);
+      });
+
+      it("reverte quando mesmo issuer tenta votar duas vezes", async function () {
+        const { contract, issuer } = await loadFixture(withProposalFixture);
+        await contract.connect(issuer).vote(1n, true);
+        await expect(contract.connect(issuer).vote(1n, true))
+          .to.be.revertedWith("Ja votou");
+      });
+
+      it("nao autorizado nao pode votar", async function () {
+        const { contract, other } = await loadFixture(withProposalFixture);
+        await expect(contract.connect(other).vote(1n, true))
+          .to.be.revertedWith("Nao autorizado");
+      });
+
+      it("reverte em proposta inexistente", async function () {
+        const { contract, issuer } = await loadFixture(withProposalFixture);
+        await expect(contract.connect(issuer).vote(99n, true))
+          .to.be.revertedWith("Proposta nao existe");
+      });
+
+      it("reverte quando votacao ja encerrou (apos deadline)", async function () {
+        const { contract, issuer } = await loadFixture(withProposalFixture);
+        await time.increase(3 * 24 * 60 * 60 + 1);
+        await expect(contract.connect(issuer).vote(1n, true))
+          .to.be.revertedWith("Votacao encerrada");
+      });
+    });
+
+    describe("executeProposal", function () {
+      const THREE_DAYS = 3 * 24 * 60 * 60;
+
+      async function withApprovedProposalFixture() {
+        const ctx = await loadFixture(daoFixture);
+        await ctx.contract.connect(ctx.issuer).createProposal(
+          0, ctx.issuer2.address, 0, "Adicionar emissor"
+        );
+        await ctx.contract.connect(ctx.issuer).vote(1n, true);
+        await ctx.contract.connect(ctx.owner).vote(1n, true);
+        return ctx;
+      }
+
+      it("reverte quando votacao ainda esta em andamento", async function () {
+        const { contract } = await loadFixture(withApprovedProposalFixture);
+        await expect(contract.executeProposal(1n))
+          .to.be.revertedWith("Votacao em andamento");
+      });
+
+      it("reverte em proposta inexistente", async function () {
+        const { contract } = await loadFixture(daoFixture);
+        await time.increase(THREE_DAYS + 1);
+        await expect(contract.executeProposal(99n))
+          .to.be.revertedWith("Proposta nao existe");
+      });
+
+      it("executa AuthorizeIssuer aprovada: issuer2 se torna emissor", async function () {
+        const { contract, issuer2 } = await loadFixture(withApprovedProposalFixture);
+        await time.increase(THREE_DAYS + 1);
+        await expect(contract.executeProposal(1n))
+          .to.emit(contract, "ProposalExecuted")
+          .withArgs(1n, true);
+        expect(await contract.isAuthorizedIssuer(issuer2.address)).to.be.true;
+      });
+
+      it("executa RevokeIssuer aprovada: emissor perde acesso", async function () {
+        const { contract, issuer, owner } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(1, issuer.address, 0, "Remover emissor");
+        await contract.connect(owner).vote(1n, true);
+        await contract.connect(issuer).vote(1n, true);
+        await time.increase(THREE_DAYS + 1);
+        await contract.executeProposal(1n);
+        expect(await contract.isAuthorizedIssuer(issuer.address)).to.be.false;
+      });
+
+      it("executa RevokeCertificate aprovada: certificado fica invalido", async function () {
+        const { contract, issuer, owner } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(2, ethers.ZeroAddress, 1n, "Fraude detectada");
+        await contract.connect(owner).vote(1n, true);
+        await contract.connect(issuer).vote(1n, true);
+        await time.increase(THREE_DAYS + 1);
+        await contract.executeProposal(1n);
+        const [valid] = await contract.verifyById(1n);
+        expect(valid).to.be.false;
+      });
+
+      it("proposta rejeitada (mais votos contra) nao executa acao", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Adicionar emissor");
+        await contract.connect(issuer).vote(1n, false);
+        await time.increase(THREE_DAYS + 1);
+        await expect(contract.executeProposal(1n))
+          .to.emit(contract, "ProposalExecuted")
+          .withArgs(1n, false);
+        expect(await contract.isAuthorizedIssuer(issuer2.address)).to.be.false;
+      });
+
+      it("proposta sem votos nao executa acao", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Adicionar emissor");
+        await time.increase(THREE_DAYS + 1);
+        await expect(contract.executeProposal(1n))
+          .to.emit(contract, "ProposalExecuted")
+          .withArgs(1n, false);
+        expect(await contract.isAuthorizedIssuer(issuer2.address)).to.be.false;
+      });
+
+      it("reverte quando proposta ja foi executada", async function () {
+        const { contract } = await loadFixture(withApprovedProposalFixture);
+        await time.increase(THREE_DAYS + 1);
+        await contract.executeProposal(1n);
+        await expect(contract.executeProposal(1n))
+          .to.be.revertedWith("Ja executada");
+      });
+    });
+
+    describe("getActiveProposals", function () {
+      const THREE_DAYS = 3 * 24 * 60 * 60;
+
+      it("retorna IDs das propostas ainda em votacao", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Proposta 1");
+        const active = await contract.getActiveProposals();
+        expect(active.length).to.equal(1);
+        expect(active[0]).to.equal(1n);
+      });
+
+      it("nao retorna proposta ja executada", async function () {
+        const { contract, issuer, issuer2, owner } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Proposta 1");
+        await contract.connect(issuer).vote(1n, true);
+        await contract.connect(owner).vote(1n, true);
+        await time.increase(THREE_DAYS + 1);
+        await contract.executeProposal(1n);
+        const active = await contract.getActiveProposals();
+        expect(active.length).to.equal(0);
+      });
+
+      it("nao retorna proposta com deadline expirado e nao executada", async function () {
+        const { contract, issuer, issuer2 } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Proposta 1");
+        await time.increase(THREE_DAYS + 1);
+        const active = await contract.getActiveProposals();
+        expect(active.length).to.equal(0);
+      });
+
+      it("retorna multiplas propostas ativas", async function () {
+        const { contract, issuer, issuer2, owner } = await loadFixture(daoFixture);
+        await contract.connect(issuer).createProposal(0, issuer2.address, 0, "Proposta 1");
+        await contract.connect(owner).createProposal(2, ethers.ZeroAddress, 1n, "Proposta 2");
+        const active = await contract.getActiveProposals();
+        expect(active.length).to.equal(2);
+        expect(active[0]).to.equal(1n);
+        expect(active[1]).to.equal(2n);
+      });
     });
   });
 });
