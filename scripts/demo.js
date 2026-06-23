@@ -26,11 +26,21 @@ async function main() {
   console.log(`╚══════════════════════════════════════╝${RESET}`);
 
   // 1. Deploy
-  section("1. Deploy do contrato");
+  section("1. Deploy dos contratos");
+  const Token = await ethers.getContractFactory("AcademicToken");
+  const token = await Token.deploy();
+  await token.waitForDeployment();
+  log("AcademicToken", await token.getAddress());
+
+  await token.mint(owner.address, ethers.parseEther("100"));
+  await token.mint(issuer.address, ethers.parseEther("100"));
+  await token.mint(voter2.address, ethers.parseEther("100"));
+  success("Tokens de governança mintados (100 ACT cada)");
+
   const AC = await ethers.getContractFactory("AcademicChain");
-  const contract = await AC.deploy(VOTING_PERIOD);
+  const contract = await AC.deploy(VOTING_PERIOD, await token.getAddress());
   await contract.waitForDeployment();
-  log("Endereço", await contract.getAddress());
+  log("AcademicChain", await contract.getAddress());
   log("VOTING_PERIOD", `${VOTING_PERIOD} segundos`);
   log("Owner", owner.address);
   success("Contrato deployado");
