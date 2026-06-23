@@ -11,9 +11,11 @@ describe("AcademicChain", function () {
 
   async function deployFixture() {
     const [owner, issuer, student, other] = await ethers.getSigners();
+    const AcademicToken = await ethers.getContractFactory("AcademicToken");
+    const token = await AcademicToken.deploy();
     const AcademicChain = await ethers.getContractFactory("AcademicChain");
-    const contract = await AcademicChain.deploy(THREE_DAYS);
-    return { contract, owner, issuer, student, other };
+    const contract = await AcademicChain.deploy(THREE_DAYS, await token.getAddress());
+    return { contract, token, owner, issuer, student, other };
   }
 
   async function deployWithIssuerFixture() {
@@ -305,11 +307,17 @@ describe("AcademicChain", function () {
   describe("DAO Voting", function () {
     async function daoFixture() {
       const [owner, issuer, issuer2, student, other] = await ethers.getSigners();
+      const AcademicToken = await ethers.getContractFactory("AcademicToken");
+      const token = await AcademicToken.deploy();
+      await token.mint(owner.address, ethers.parseEther("100"));
+      await token.mint(issuer.address, ethers.parseEther("100"));
+      await token.mint(issuer2.address, ethers.parseEther("100"));
+      // other recebe nenhum token — nao pode participar da governanca
       const AcademicChain = await ethers.getContractFactory("AcademicChain");
-      const contract = await AcademicChain.deploy(THREE_DAYS);
+      const contract = await AcademicChain.deploy(THREE_DAYS, await token.getAddress());
       await contract.authorizeIssuer(issuer.address);
       await contract.issueCertificate(student.address, "Ana Lima", "Eng Software", 40, HASH_A);
-      return { contract, owner, issuer, issuer2, student, other };
+      return { contract, token, owner, issuer, issuer2, student, other };
     }
 
     describe("createProposal", function () {
@@ -322,11 +330,11 @@ describe("AcademicChain", function () {
           .withArgs(1n, 0, issuer.address, anyValue);
       });
 
-      it("nao autorizado nao pode criar proposta", async function () {
+      it("sem token nao pode criar proposta", async function () {
         const { contract, other, issuer2 } = await loadFixture(daoFixture);
         await expect(
           contract.connect(other).createProposal(0, issuer2.address, 0, "test")
-        ).to.be.revertedWith("Nao autorizado");
+        ).to.be.revertedWith("Sem token de governanca");
       });
 
       it("reverte quando descricao esta vazia", async function () {
@@ -410,10 +418,10 @@ describe("AcademicChain", function () {
           .to.be.revertedWith("Ja votou");
       });
 
-      it("nao autorizado nao pode votar", async function () {
+      it("sem token nao pode votar", async function () {
         const { contract, other } = await loadFixture(withProposalFixture);
         await expect(contract.connect(other).vote(1n, true))
-          .to.be.revertedWith("Nao autorizado");
+          .to.be.revertedWith("Sem token de governanca");
       });
 
       it("reverte em proposta inexistente", async function () {
