@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract AcademicChain is Ownable {
     struct Certificate {
@@ -47,6 +48,7 @@ contract AcademicChain is Ownable {
         bool executed;
     }
 
+    IERC20 public governanceToken;
     uint256 public immutable VOTING_PERIOD;
     uint256 private _nextProposalId = 1;
     uint256[] private _allProposalIds;
@@ -62,8 +64,15 @@ contract AcademicChain is Ownable {
         _;
     }
 
-    constructor(uint256 votingPeriod) Ownable(msg.sender) {
+    modifier onlyTokenHolder() {
+        require(governanceToken.balanceOf(msg.sender) > 0, "Sem token de governanca");
+        _;
+    }
+
+    constructor(uint256 votingPeriod, address tokenAddress) Ownable(msg.sender) {
+        require(tokenAddress != address(0), "Token invalido");
         VOTING_PERIOD = votingPeriod;
+        governanceToken = IERC20(tokenAddress);
     }
 
     function authorizeIssuer(address issuer) external onlyOwner {
@@ -171,7 +180,7 @@ contract AcademicChain is Ownable {
         address targetAddress,
         uint256 targetCertId,
         string calldata description
-    ) external onlyIssuer returns (uint256) {
+    ) external onlyTokenHolder returns (uint256) {
         require(bytes(description).length > 0, "Descricao obrigatoria");
 
         if (proposalType == ProposalType.AuthorizeIssuer) {
@@ -211,7 +220,7 @@ contract AcademicChain is Ownable {
         return proposals[proposalId];
     }
 
-    function vote(uint256 proposalId, bool support) external onlyIssuer {
+    function vote(uint256 proposalId, bool support) external onlyTokenHolder {
         Proposal storage p = proposals[proposalId];
         require(p.id != 0, "Proposta nao existe");
         require(block.timestamp < p.deadline, "Votacao encerrada");
