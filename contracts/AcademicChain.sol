@@ -25,6 +25,7 @@ contract AcademicChain is Ownable {
     mapping(address => uint256[]) private _studentCertificates;
     mapping(string => uint256) private _certificateByHash;
     mapping(address => bool) public authorizedIssuers;
+    address[] private _issuerList;
     uint256 public issuerCount;
 
     event CertificateIssued(uint256 indexed id, address indexed student, address indexed issuedBy, string documentHash);
@@ -81,8 +82,11 @@ contract AcademicChain is Ownable {
     }
 
     function _doAuthorizeIssuer(address issuer) internal {
+        if (!authorizedIssuers[issuer]) {
+            _issuerList.push(issuer);
+            issuerCount++;
+        }
         authorizedIssuers[issuer] = true;
-        issuerCount++;
         emit IssuerAuthorized(issuer);
     }
 
@@ -98,6 +102,19 @@ contract AcademicChain is Ownable {
 
     function isAuthorizedIssuer(address issuer) external view returns (bool) {
         return authorizedIssuers[issuer];
+    }
+
+    function getAuthorizedIssuers() external view returns (address[] memory) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _issuerList.length; i++) {
+            if (authorizedIssuers[_issuerList[i]]) count++;
+        }
+        address[] memory result = new address[](count);
+        uint256 index = 0;
+        for (uint256 i = 0; i < _issuerList.length; i++) {
+            if (authorizedIssuers[_issuerList[i]]) result[index++] = _issuerList[i];
+        }
+        return result;
     }
 
     function issueCertificate(
