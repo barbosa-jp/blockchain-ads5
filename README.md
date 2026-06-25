@@ -2,6 +2,15 @@
 
 DApp para emissão e verificação de certificados acadêmicos na blockchain Ethereum (Sepolia Testnet).
 
+## Equipe e Papéis
+
+| Papel | Responsabilidade | Carga |
+|---|---|---|
+| **Dev Rafael Casemiro — Lead Blockchain** | Smart contract, testes Solidity, deploy, scripts Hardhat | 100% |
+| **Dev João Pedro — Frontend Lead** | Arquitetura React, integração Web3, services Ethers.js | 100% |
+| **Dev Luana Costa — Frontend UI** | Componentes, layout, UX, feedback visual, estilos | 100% |
+| **Dev Juliana Miranda — DevOps & Docs** | README, deploy automation, vídeo demo, slides, apresentação | 100% |
+
 ## Stack
 
 | Camada | Tecnologia |
