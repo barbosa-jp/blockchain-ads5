@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract AcademicChain is Ownable {
+    enum DocumentType { Certificate, Badge }
+
     struct Certificate {
         uint256 id;
         address student;
@@ -17,6 +19,7 @@ contract AcademicChain is Ownable {
         bool revoked;
         string revokeReason;
         uint256 revokedAt;
+        DocumentType documentType;
     }
 
     uint256 private _nextId = 1;
@@ -122,7 +125,8 @@ contract AcademicChain is Ownable {
         string calldata studentName,
         string calldata courseName,
         uint256 workloadHours,
-        string calldata documentHash
+        string calldata documentHash,
+        DocumentType documentType
     ) external onlyIssuer returns (uint256) {
         require(student != address(0), "Endereco invalido");
         require(bytes(documentHash).length > 0, "Hash obrigatorio");
@@ -141,7 +145,8 @@ contract AcademicChain is Ownable {
             issuedAt: block.timestamp,
             revoked: false,
             revokeReason: "",
-            revokedAt: 0
+            revokedAt: 0,
+            documentType: documentType
         });
         _studentCertificates[student].push(id);
         _certificateByHash[documentHash] = id;

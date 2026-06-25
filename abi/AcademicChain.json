@@ -316,6 +316,11 @@
         "internalType": "uint256",
         "name": "revokedAt",
         "type": "uint256"
+      },
+      {
+        "internalType": "enum AcademicChain.DocumentType",
+        "name": "documentType",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",
@@ -460,6 +465,11 @@
             "internalType": "uint256",
             "name": "revokedAt",
             "type": "uint256"
+          },
+          {
+            "internalType": "enum AcademicChain.DocumentType",
+            "name": "documentType",
+            "type": "uint8"
           }
         ],
         "internalType": "struct AcademicChain.Certificate",
@@ -655,6 +665,11 @@
         "internalType": "string",
         "name": "documentHash",
         "type": "string"
+      },
+      {
+        "internalType": "enum AcademicChain.DocumentType",
+        "name": "documentType",
+        "type": "uint8"
       }
     ],
     "name": "issueCertificate",
@@ -880,6 +895,11 @@
             "internalType": "uint256",
             "name": "revokedAt",
             "type": "uint256"
+          },
+          {
+            "internalType": "enum AcademicChain.DocumentType",
+            "name": "documentType",
+            "type": "uint8"
           }
         ],
         "internalType": "struct AcademicChain.Certificate",
@@ -961,6 +981,11 @@
             "internalType": "uint256",
             "name": "revokedAt",
             "type": "uint256"
+          },
+          {
+            "internalType": "enum AcademicChain.DocumentType",
+            "name": "documentType",
+            "type": "uint8"
           }
         ],
         "internalType": "struct AcademicChain.Certificate",
